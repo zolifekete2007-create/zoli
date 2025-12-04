@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
+
 RED='\033[1;31m'
 GREEN='\033[1;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[1;34m'
 NC='\033[0m'
+
 CHECK="${GREEN}[OK]${NC}"
 ERR="${RED}[ERR]${NC}"
 INFO="${BLUE}[INFO]${NC}"
@@ -53,57 +55,38 @@ if [[ $NODE_RED -eq 0 && $LAMP -eq 0 && $MQTT -eq 0 && $MC -eq 0 ]]; then
   exit 0
 fi
 
-echo -e "${INFO} Rendszer frissítése..."
+STEP=1
+
+echo -e "${INFO} (${STEP}/5) Rendszer frissítése..."
 apt-get update -y && apt-get upgrade -y
 apt-get install -y curl wget unzip ca-certificates gnupg lsb-release
+echo -e "${CHECK} (${STEP}/5) Kész."
+STEP=$((STEP+1))
 
 if [[ $NODE_RED -eq 1 ]]; then
-  echo -e "${INFO} Node-RED telepítése..."
+  echo -e "${INFO} (${STEP}/5) Node-RED telepítése..."
   if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
     npm install -g --unsafe-perm node-red
-    echo -e "${CHECK} Node-RED telepítve."
-    SERVICE="/etc/systemd/system/node-red.service"
-    if [[ ! -f "$SERVICE" ]]; then
-      cat >"$SERVICE" <<'UNIT'
-[Unit]
-Description=Node-RED
-After=network.target
-[Service]
-Type=simple
-User=root
-ExecStart=/usr/bin/env node-red
-Restart=on-failure
-[Install]
-WantedBy=multi-user.target
-UNIT
-      systemctl daemon-reload
-    fi
-    read -rp "Induljon automatikusan bootkor? (y/n): " NR
-    if [[ "$NR" =~ ^[Yy]$ ]]; then
-      systemctl enable --now node-red
-      echo -e "${CHECK} Node-RED engedélyezve."
-    fi
+    echo -e "${CHECK} (${STEP}/5) Node-RED kész."
   else
-    echo -e "${ERR} Node.js vagy npm nem telepített – kihagyva."
+    echo -e "${ERR} Node.js vagy npm hiányzik – Node-RED kihagyva."
   fi
+  STEP=$((STEP+1))
 fi
 
 if [[ $LAMP -eq 1 ]]; then
-  echo -e "${INFO} LAMP csomagok telepítése..."
+  echo -e "${INFO} (${STEP}/5) LAMP telepítése..."
   apt-get install -y apache2 mariadb-server php libapache2-mod-php php-mysql \
     php-mbstring php-zip php-gd php-json php-curl
   systemctl enable apache2 mariadb
   systemctl start apache2 mariadb
-  echo -e "${CHECK} Apache2 + MariaDB fut."
 
-  echo -e "${INFO} MariaDB user létrehozása (user / user123)"
   mysql -u root <<EOF
 CREATE USER IF NOT EXISTS 'user'@'localhost' IDENTIFIED BY 'user123';
 GRANT ALL PRIVILEGES ON *.* TO 'user'@'localhost' WITH GRANT OPTION;
 FLUSH PRIVILEGES;
 EOF
 
-  echo -e "${INFO} phpMyAdmin telepítése..."
   cd /tmp
   wget -q -O phpmyadmin.zip https://www.phpmyadmin.net/downloads/phpMyAdmin-latest-all-languages.zip
   unzip -q phpmyadmin.zip
@@ -123,10 +106,12 @@ APACHECONF
 
   a2enconf phpmyadmin
   systemctl reload apache2
+  echo -e "${CHECK} (${STEP}/5) LAMP kész."
+  STEP=$((STEP+1))
 fi
 
 if [[ $MQTT -eq 1 ]]; then
-  echo -e "${INFO} MQTT (Mosquitto) telepítése..."
+  echo -e "${INFO} (${STEP}/5) MQTT telepítése..."
   apt-get install -y mosquitto mosquitto-clients
   mkdir -p /etc/mosquitto/conf.d
   cat >/etc/mosquitto/conf.d/local.conf <<'MQTT'
@@ -135,13 +120,14 @@ allow_anonymous true
 MQTT
   systemctl enable mosquitto
   systemctl restart mosquitto
-  echo -e "${CHECK} MQTT fut a 1883 porton."
+  echo -e "${CHECK} (${STEP}/5) MQTT kész."
+  STEP=$((STEP+1))
 fi
 
 if [[ $MC -eq 1 ]]; then
-  echo -e "${INFO} mc telepítése..."
+  echo -e "${INFO} (${STEP}/5) mc telepítése..."
   apt-get install -y mc
-  echo -e "${CHECK} mc telepítve (indítás: mc)"
+  echo -e "${CHECK} (${STEP}/5) mc kész."
 fi
 
 echo
